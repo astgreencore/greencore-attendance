@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Greencore Builders — Attendance</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
+    header { width: 100%; background: #1a3c5e; color: #fff; padding: 16px 20px; text-align: center; }
+    header h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: 1px; }
+    header p  { font-size: 0.8rem; opacity: 0.8; margin-top: 2px; }
+    .card { background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); padding: 24px; margin: 20px 16px; width: 100%; max-width: 420px; }
+    .site-badge { background: #e8f4f0; border: 2px solid #2e8b6e; border-radius: 8px; padding: 10px 16px; text-align: center; margin-bottom: 20px; }
+    .site-badge .label { font-size: 0.75rem; color: #666; text-transform: uppercase; letter-spacing: 1px; }
+    .site-badge .value { font-size: 1.1rem; font-weight: 700; color: #1a3c5e; margin-top: 2px; }
+    h2 { font-size: 1rem; color: #1a3c5e; margin-bottom: 14px; text-align: center; }
+    #reader { width: 100%; border-radius: 8px; overflow: hidden; }
+    .status-box { display: none; border-radius: 10px; padding: 18px; text-align: center; margin-top: 16px; }
+    .status-box.success { background: #e6f9f0; border: 2px solid #2e8b6e; }
+    .status-box.error   { background: #fff0f0; border: 2px solid #e05252; }
+    .status-box.warning { background: #fffbe6; border: 2px solid #f0a500; }
+    .status-icon  { font-size: 2.5rem; }
+    .status-title { font-size: 1.2rem; font-weight: 700; margin: 6px 0 4px; color: #1a3c5e; }
+    .status-name  { font-size: 1rem; color: #333; }
+    .status-meta  { font-size: 0.82rem; color: #666; margin-top: 6px; }
+    .status-range { font-size: 0.8rem; margin-top: 8px; font-weight: 600; }
+    .status-range.ok      { color: #2e8b6e; }
+    .status-range.outside { color: #e05252; }
+    .btn { display: block; width: 100%; margin-top: 16px; padding: 13px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; }
+    .btn-primary { background: #1a3c5e; color: #fff; }
+    .loading { text-align: center; padding: 30px; color: #888; font-size: 0.9rem; }
+    .spinner { display: inline-block; width: 28px; height: 28px; border: 3px solid #ddd; border-top-color: #1a3c5e; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 10px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    footer { font-size: 0.75rem; color: #aaa; text-align: center; padding: 20px; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>GREENCORE BUILDERS INC.</h1>
+  <p>Site Attendance System</p>
+</header>
+
+<div class="card">
+  <div class="site-badge">
+    <div class="label">Current Site</div>
+    <div class="value" id="siteDisplay">Loading…</div>
+  </div>
+  <h2>Scan Your Personal QR Code</h2>
+  <div id="reader"></div>
+  <div class="loading" id="loadingBox" style="display:none;">
+    <div class="spinner"></div><br>Recording attendance…
+  </div>
+  <div class="status-box" id="resultBox">
+    <div class="status-icon" id="resultIcon"></div>
+    <div class="status-title" id="resultTitle"></div>
+    <div class="status-name"  id="resultName"></div>
+    <div class="status-meta"  id="resultMeta"></div>
+    <div class="status-range" id="resultRange"></div>
+    <button class="btn btn-primary" onclick="resetScanner()">Scan Next</button>
+  </div>
+</div>
+
+<footer>Greencore Builders Inc. &copy; 2026</footer>
+
+<script>
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw4WeqCP8mxNGZkX3S4JW3HMaSPsfag7c0u3ZkQV2o8NxXxl6e-eZJ7Ia3JUGXEZEkOow/exec';
+
+const params   = new URLSearchParams(window.location.search);
+const siteCode = params.get('site') || '';
+let   siteData = null;
+
+async function init() {
+  if (!siteCode) { showError('No site code in URL. Please scan the correct site QR code.'); return; }
+  try {
+    const res  = await fetch(`${APPS_SCRIPT_URL}?action=getSites`);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+    const site = json.sites.find(s => s.siteCode === siteCode);
+    if (!site) { showError(`Site "${siteCode}" not found. Check your Site List sheet.`); return; }
+    siteData = site;
+    document.getElementById('siteDisplay').textContent = `${site.siteName} (${site.siteCode})`;
+    startScanner();
+  } catch (err) {
+    showError('Cannot connect to server: ' + err.message);
+  }
+}
+
+let scanner = null;
+let scanning = true;
+
+function startScanner() {
+  scanner = new Html5Qrcode('reader');
+  scanner.start(
+    { facingMode: 'environment' },
+    { fps: 10, qrbox: { width: 260, height: 260 } },
+    onQRScanned,
+    () => {}
+  ).catch(() => showError('Camera access denied. Please allow camera permission.'));
+}
+
+async function onQRScanned(token) {
+  if (!scanning) return;
+  scanning = false;
+  if (scanner) { try { await scanner.stop(); } catch(e) {} document.getElementById('reader').innerHTML = ''; }
+  document.getElementById('loadingBox').style.display = 'block';
+  try {
+    const empRes  = await fetch(`${APPS_SCRIPT_URL}?action=getEmployee&token=${encodeURIComponent(token)}`);
+    const empJson = await empRes.json();
+    if (!empJson.success) { document.getElementById('loadingBox').style.display = 'none'; showError(empJson.message); return; }
+
+    let latitude = '', longitude = '', distance = '', remarks = '';
+    try {
+      const pos = await getLocation();
+      latitude  = pos.coords.latitude;
+      longitude = pos.coords.longitude;
+      distance  = calcDistance(latitude, longitude, siteData.latitude, siteData.longitude);
+      remarks   = distance > siteData.radius ? 'OUT-OF-RANGE' : 'WITHIN-RANGE';
+    } catch (e) { remarks = 'GPS-UNAVAILABLE'; }
+
+    const logRes  = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action:       'logAttendance',
+        employeeId:   empJson.employeeId,
+        employeeName: empJson.employeeName,
+        siteCode:     siteData.siteCode,
+        siteName:     siteData.siteName,
+        latitude,
+        longitude,
+        device:       navigator.userAgent.substring(0, 80),
+        distance:     distance ? Math.round(distance) + 'm' : '',
+        remarks
+      })
+    });
+    const logJson = await logRes.json();
+    document.getElementById('loadingBox').style.display = 'none';
+    if (!logJson.success) { showError(logJson.message); return; }
+    showSuccess(logJson, distance, siteData.radius, remarks);
+  } catch (err) {
+    document.getElementById('loadingBox').style.display = 'none';
+    showError('Error: ' + err.message);
+  }
+}
+
+function showSuccess(log, distance, radius, remarks) {
+  const box = document.getElementById('resultBox');
+  box.className = 'status-box ' + (remarks === 'OUT-OF-RANGE' ? 'warning' : 'success');
+  document.getElementById('resultIcon').textContent  = log.action === 'TIME-IN' ? '✅' : '🚪';
+  document.getElementById('resultTitle').textContent = log.action;
+  document.getElementById('resultName').textContent  = log.employeeName;
+  document.getElementById('resultMeta').textContent  = `${log.siteName}  •  ${log.date}  ${log.time}`;
+  const rangeEl = document.getElementById('resultRange');
+  if (distance !== '') {
+    if (remarks === 'OUT-OF-RANGE') { rangeEl.textContent = `⚠️ OUT OF RANGE — ${Math.round(distance)}m from site (max ${radius}m)`; rangeEl.className = 'status-range outside'; }
+    else { rangeEl.textContent = `📍 Within range — ${Math.round(distance)}m from site`; rangeEl.className = 'status-range ok'; }
+  } else { rangeEl.textContent = '📍 GPS unavailable'; }
+  box.style.display = 'block';
+}
+
+function showError(msg) {
+  const box = document.getElementById('resultBox');
+  box.className = 'status-box error';
+  document.getElementById('resultIcon').textContent  = '❌';
+  document.getElementById('resultTitle').textContent = 'Error';
+  document.getElementById('resultName').textContent  = msg;
+  document.getElementById('resultMeta').textContent  = '';
+  document.getElementById('resultRange').textContent = '';
+  box.style.display = 'block';
+  document.getElementById('loadingBox').style.display = 'none';
+}
+
+function resetScanner() {
+  document.getElementById('resultBox').style.display = 'none';
+  scanning = true;
+  startScanner();
+}
+
+function getLocation() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) return reject(new Error('GPS not supported'));
+    navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 8000 });
+  });
+}
+
+function calcDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000, d1 = lat1*Math.PI/180, d2 = lat2*Math.PI/180;
+  const dL = (lat2-lat1)*Math.PI/180, dO = (lon2-lon1)*Math.PI/180;
+  const a = Math.sin(dL/2)**2 + Math.cos(d1)*Math.cos(d2)*Math.sin(dO/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+init();
+</script>
+</body>
+</html>
