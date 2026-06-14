@@ -23,7 +23,7 @@
     .status-box.warning { background: #fffbe6; border: 2px solid #f0a500; }
     .status-icon  { font-size: 2.5rem; }
     .status-title { font-size: 1.2rem; font-weight: 700; margin: 6px 0 4px; color: #1a3c5e; }
-    .status-name  { font-size: 1rem; color: #333; }
+    .status-name  { font-size: 0.95rem; color: #333; }
     .status-meta  { font-size: 0.82rem; color: #666; margin-top: 6px; }
     .status-range { font-size: 0.8rem; margin-top: 8px; font-weight: 600; }
     .status-range.ok      { color: #2e8b6e; }
@@ -53,7 +53,7 @@
     <div class="spinner"></div><br>Recording attendance…
   </div>
   <div class="status-box" id="resultBox">
-    <div class="status-icon" id="resultIcon"></div>
+    <div class="status-icon"  id="resultIcon"></div>
     <div class="status-title" id="resultTitle"></div>
     <div class="status-name"  id="resultName"></div>
     <div class="status-meta"  id="resultMeta"></div>
@@ -91,6 +91,7 @@ let scanner = null;
 let scanning = true;
 
 function startScanner() {
+  document.getElementById('reader').innerHTML = '';
   scanner = new Html5Qrcode('reader');
   scanner.start(
     { facingMode: 'environment' },
@@ -103,13 +104,26 @@ function startScanner() {
 async function onQRScanned(token) {
   if (!scanning) return;
   scanning = false;
-  if (scanner) { try { await scanner.stop(); } catch(e) {} document.getElementById('reader').innerHTML = ''; }
+
+  if (scanner) {
+    try { await scanner.stop(); } catch(e) {}
+    document.getElementById('reader').innerHTML = '';
+  }
+
   document.getElementById('loadingBox').style.display = 'block';
+  document.getElementById('resultBox').style.display  = 'none';
+
   try {
+    // Step 1: Validate employee token
     const empRes  = await fetch(`${APPS_SCRIPT_URL}?action=getEmployee&token=${encodeURIComponent(token)}`);
     const empJson = await empRes.json();
-    if (!empJson.success) { document.getElementById('loadingBox').style.display = 'none'; showError(empJson.message); return; }
 
+    if (!empJson.success) {
+      showError(empJson.message || 'Invalid QR code.');
+      return;
+    }
+
+    // Step 2: Get GPS
     let latitude = '', longitude = '', distance = '', remarks = '';
     try {
       const pos = await getLocation();
@@ -117,8 +131,11 @@ async function onQRScanned(token) {
       longitude = pos.coords.longitude;
       distance  = calcDistance(latitude, longitude, siteData.latitude, siteData.longitude);
       remarks   = distance > siteData.radius ? 'OUT-OF-RANGE' : 'WITHIN-RANGE';
-    } catch (e) { remarks = 'GPS-UNAVAILABLE'; }
+    } catch (e) {
+      remarks = 'GPS-UNAVAILABLE';
+    }
 
+    // Step 3: Log attendance
     const logRes  = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
       body: JSON.stringify({
@@ -136,34 +153,68 @@ async function onQRScanned(token) {
     });
     const logJson = await logRes.json();
     document.getElementById('loadingBox').style.display = 'none';
+
+    // BLOCKED — scanned too soon
     if (!logJson.success && logJson.blocked) {
-      showBlocked(logJson.message, logJson.lastAction);
+      showWarning(
+        logJson.lastAction === 'TIME-IN' ? '⏱️' : '🚪',
+        'Already ' + logJson.lastAction,
+        empJson.employeeName,
+        logJson.message
+      );
       return;
     }
-    if (!logJson.success) { showError(logJson.message); return; }
-    showSuccess(logJson, distance, siteData.radius, remarks);;
-    document.getElementById('loadingBox').style.display = 'none';
-    if (!logJson.success) { showError(logJson.message); return; }
-    showSuccess(logJson, distance, siteData.radius, remarks);
+
+    if (!logJson.success) { showError(logJson.message || 'Failed to log.'); return; }
+
+    // SUCCESS
+    const rangeText = distance !== ''
+      ? (remarks === 'OUT-OF-RANGE'
+          ? `⚠️ OUT OF RANGE — ${Math.round(distance)}m from site (max ${siteData.radius}m)`
+          : `📍 Within range — ${Math.round(distance)}m from site`)
+      : '📍 GPS unavailable';
+
+    const rangeClass = remarks === 'OUT-OF-RANGE' ? 'outside' : 'ok';
+
+    showResult(
+      logJson.action === 'TIME-IN' ? 'success' : 'success',
+      logJson.action === 'TIME-IN' ? '✅' : '🚪',
+      logJson.action,
+      logJson.employeeName,
+      `${logJson.siteName}  •  ${logJson.date}  ${logJson.time}`,
+      rangeText,
+      rangeClass
+    );
+
   } catch (err) {
     document.getElementById('loadingBox').style.display = 'none';
     showError('Error: ' + err.message);
   }
 }
 
-function showSuccess(log, distance, radius, remarks) {
+function showResult(type, icon, title, name, meta, range, rangeClass) {
   const box = document.getElementById('resultBox');
-  box.className = 'status-box ' + (remarks === 'OUT-OF-RANGE' ? 'warning' : 'success');
-  document.getElementById('resultIcon').textContent  = log.action === 'TIME-IN' ? '✅' : '🚪';
-  document.getElementById('resultTitle').textContent = log.action;
-  document.getElementById('resultName').textContent  = log.employeeName;
-  document.getElementById('resultMeta').textContent  = `${log.siteName}  •  ${log.date}  ${log.time}`;
+  box.className = 'status-box ' + type;
+  document.getElementById('resultIcon').textContent  = icon;
+  document.getElementById('resultTitle').textContent = title;
+  document.getElementById('resultName').textContent  = name;
+  document.getElementById('resultMeta').textContent  = meta;
   const rangeEl = document.getElementById('resultRange');
-  if (distance !== '') {
-    if (remarks === 'OUT-OF-RANGE') { rangeEl.textContent = `⚠️ OUT OF RANGE — ${Math.round(distance)}m from site (max ${radius}m)`; rangeEl.className = 'status-range outside'; }
-    else { rangeEl.textContent = `📍 Within range — ${Math.round(distance)}m from site`; rangeEl.className = 'status-range ok'; }
-  } else { rangeEl.textContent = '📍 GPS unavailable'; }
+  rangeEl.textContent = range;
+  rangeEl.className   = 'status-range ' + (rangeClass || '');
   box.style.display = 'block';
+}
+
+function showWarning(icon, title, name, msg) {
+  const box = document.getElementById('resultBox');
+  box.className = 'status-box warning';
+  document.getElementById('resultIcon').textContent  = icon;
+  document.getElementById('resultTitle').textContent = title;
+  document.getElementById('resultName').textContent  = name;
+  document.getElementById('resultMeta').textContent  = msg;
+  document.getElementById('resultRange').textContent = '';
+  box.style.display = 'block';
+  document.getElementById('loadingBox').style.display = 'none';
 }
 
 function showError(msg) {
@@ -177,17 +228,7 @@ function showError(msg) {
   box.style.display = 'block';
   document.getElementById('loadingBox').style.display = 'none';
 }
-function showBlocked(msg, lastAction) {
-  const box = document.getElementById('resultBox');
-  box.className = 'status-box warning';
-  document.getElementById('resultIcon').textContent  = '⚠️';
-  document.getElementById('resultTitle').textContent = 'Already ' + (lastAction || 'Scanned');
-  document.getElementById('resultName').textContent  = msg;
-  document.getElementById('resultMeta').textContent  = '';
-  document.getElementById('resultRange').textContent = '';
-  box.style.display = 'block';
-  document.getElementById('loadingBox').style.display = 'none';
-}
+
 function resetScanner() {
   document.getElementById('resultBox').style.display = 'none';
   scanning = true;
