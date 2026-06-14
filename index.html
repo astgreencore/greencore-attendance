@@ -136,6 +136,13 @@ async function onQRScanned(token) {
     });
     const logJson = await logRes.json();
     document.getElementById('loadingBox').style.display = 'none';
+    if (!logJson.success && logJson.blocked) {
+      showBlocked(logJson.message, logJson.lastAction);
+      return;
+    }
+    if (!logJson.success) { showError(logJson.message); return; }
+    showSuccess(logJson, distance, siteData.radius, remarks);;
+    document.getElementById('loadingBox').style.display = 'none';
     if (!logJson.success) { showError(logJson.message); return; }
     showSuccess(logJson, distance, siteData.radius, remarks);
   } catch (err) {
@@ -170,7 +177,17 @@ function showError(msg) {
   box.style.display = 'block';
   document.getElementById('loadingBox').style.display = 'none';
 }
-
+function showBlocked(msg, lastAction) {
+  const box = document.getElementById('resultBox');
+  box.className = 'status-box warning';
+  document.getElementById('resultIcon').textContent  = '⚠️';
+  document.getElementById('resultTitle').textContent = 'Already ' + (lastAction || 'Scanned');
+  document.getElementById('resultName').textContent  = msg;
+  document.getElementById('resultMeta').textContent  = '';
+  document.getElementById('resultRange').textContent = '';
+  box.style.display = 'block';
+  document.getElementById('loadingBox').style.display = 'none';
+}
 function resetScanner() {
   document.getElementById('resultBox').style.display = 'none';
   scanning = true;
