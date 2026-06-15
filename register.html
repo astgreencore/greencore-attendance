@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Greencore — Face Registration</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
+    header { width: 100%; background: #1a3c5e; color: #fff; padding: 16px 20px; text-align: center; }
+    header h1 { font-size: 1.1rem; font-weight: 700; }
+    header p  { font-size: 0.78rem; opacity: 0.8; margin-top: 2px; }
+    .card { background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); padding: 24px; margin: 20px 16px; width: 100%; max-width: 420px; }
+    h2 { font-size: 1rem; color: #1a3c5e; margin-bottom: 14px; text-align: center; }
+    .step { display: none; }
+    .step.active { display: block; }
+    #reader { width: 100%; border-radius: 8px; overflow: hidden; margin-bottom: 12px; }
+    .emp-box { background: #e8f4f0; border: 2px solid #2e8b6e; border-radius: 8px; padding: 14px; text-align: center; margin-bottom: 16px; }
+    .emp-box .name { font-size: 1.1rem; font-weight: 700; color: #1a3c5e; }
+    .emp-box .id   { font-size: 0.82rem; color: #555; margin-top: 2px; }
+    video, canvas { width: 100%; border-radius: 8px; }
+    canvas { display: none; }
+    .preview-img { width: 100%; border-radius: 8px; margin: 12px 0; border: 3px solid #2e8b6e; }
+    .btn { display: block; width: 100%; margin-top: 12px; padding: 13px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; }
+    .btn-primary { background: #1a3c5e; color: #fff; }
+    .btn-green   { background: #2e8b6e; color: #fff; }
+    .btn-gray    { background: #e0e0e0; color: #333; }
+    .status-box { display: none; border-radius: 10px; padding: 18px; text-align: center; margin-top: 12px; }
+    .status-box.success { background: #e6f9f0; border: 2px solid #2e8b6e; }
+    .status-box.error   { background: #fff0f0; border: 2px solid #e05252; }
+    .status-icon  { font-size: 2rem; }
+    .status-title { font-size: 1.1rem; font-weight: 700; color: #1a3c5e; margin-top: 6px; }
+    .status-msg   { font-size: 0.85rem; color: #555; margin-top: 4px; }
+    .spinner { display: inline-block; width: 26px; height: 26px; border: 3px solid #ddd; border-top-color: #1a3c5e; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading { text-align: center; padding: 20px; display: none; }
+    .tip { font-size: 0.78rem; color: #888; text-align: center; margin-top: 8px; }
+    footer { font-size: 0.75rem; color: #aaa; text-align: center; padding: 20px; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>GREENCORE BUILDERS INC.</h1>
+  <p>Employee Face Registration</p>
+</header>
+
+<div class="card">
+
+  <!-- STEP 1: Scan employee QR -->
+  <div class="step active" id="step1">
+    <h2>Step 1 — Scan Employee QR Code</h2>
+    <div id="reader"></div>
+    <p class="tip">Scan the employee's personal QR code to begin registration</p>
+  </div>
+
+  <!-- STEP 2: Take selfie -->
+  <div class="step" id="step2">
+    <h2>Step 2 — Take Reference Photo</h2>
+    <div class="emp-box">
+      <div class="name" id="empName">—</div>
+      <div class="id"   id="empId">—</div>
+    </div>
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
+    <img id="preview" class="preview-img" style="display:none;"/>
+    <button class="btn btn-green" id="captureBtn" onclick="capturePhoto()">📸 Take Photo</button>
+    <button class="btn btn-primary" id="saveBtn" onclick="savePhoto()" style="display:none;">✅ Save This Photo</button>
+    <button class="btn btn-gray"    id="retakeBtn" onclick="retakePhoto()" style="display:none;">🔄 Retake</button>
+    <p class="tip">Make sure the face is clearly visible and well-lit</p>
+  </div>
+
+  <!-- Result -->
+  <div class="loading" id="loadingBox"><div class="spinner"></div><br>Saving photo…</div>
+  <div class="status-box" id="resultBox">
+    <div class="status-icon"  id="resultIcon"></div>
+    <div class="status-title" id="resultTitle"></div>
+    <div class="status-msg"   id="resultMsg"></div>
+    <button class="btn btn-primary" onclick="registerAnother()" style="margin-top:14px;">Register Another</button>
+  </div>
+
+</div>
+
+<footer>Greencore Builders Inc. &copy; 2026 — Admin Only</footer>
+
+<script>
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw4WeqCP8mxNGZkX3S4JW3HMaSPsfag7c0u3ZkQV2o8NxXxl6e-eZJ7Ia3JUGXEZEkOow/exec';
+
+let scanner     = null;
+let empData     = null;
+let photoBase64 = null;
+let stream      = null;
+
+// STEP 1: Start QR scanner
+function startQRScanner() {
+  scanner = new Html5Qrcode('reader');
+  scanner.start(
+    { facingMode: 'environment' },
+    { fps: 10, qrbox: { width: 250, height: 250 } },
+    onQRScanned, () => {}
+  ).catch(() => alert('Camera permission denied.'));
+}
+
+async function onQRScanned(token) {
+  if (scanner) { try { await scanner.stop(); } catch(e) {} }
+
+  const res  = await fetch(`${APPS_SCRIPT_URL}?action=getEmployee&token=${encodeURIComponent(token)}`);
+  const json = await res.json();
+
+  if (!json.success) { alert('Invalid QR: ' + json.message); startQRScanner(); return; }
+
+  empData = json;
+  document.getElementById('empName').textContent = json.employeeName;
+  document.getElementById('empId').textContent   = json.employeeId + '  •  ' + json.position;
+
+  showStep('step2');
+  startFrontCamera();
+}
+
+// STEP 2: Front camera
+async function startFrontCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+    document.getElementById('video').srcObject = stream;
+    document.getElementById('video').style.display   = 'block';
+    document.getElementById('preview').style.display = 'none';
+    document.getElementById('captureBtn').style.display = 'block';
+    document.getElementById('saveBtn').style.display    = 'none';
+    document.getElementById('retakeBtn').style.display  = 'none';
+  } catch(e) {
+    alert('Cannot access front camera: ' + e.message);
+  }
+}
+
+function capturePhoto() {
+  const video  = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  canvas.width  = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  photoBase64 = canvas.toDataURL('image/jpeg', 0.85);
+
+  document.getElementById('preview').src           = photoBase64;
+  document.getElementById('preview').style.display = 'block';
+  document.getElementById('video').style.display   = 'none';
+  document.getElementById('captureBtn').style.display = 'none';
+  document.getElementById('saveBtn').style.display    = 'block';
+  document.getElementById('retakeBtn').style.display  = 'block';
+
+  if (stream) { stream.getTracks().forEach(t => t.stop()); }
+}
+
+function retakePhoto() {
+  document.getElementById('preview').style.display = 'none';
+  startFrontCamera();
+}
+
+async function savePhoto() {
+  document.getElementById('loadingBox').style.display = 'block';
+  document.getElementById('saveBtn').style.display    = 'none';
+  document.getElementById('retakeBtn').style.display  = 'none';
+
+  try {
+    const res  = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action:       'registerFace',
+        employeeId:   empData.employeeId,
+        employeeName: empData.employeeName,
+        photo:        photoBase64
+      })
+    });
+    const json = await res.json();
+    document.getElementById('loadingBox').style.display = 'none';
+
+    showResult(json.success, json.success ? '✅' : '❌',
+      json.success ? 'Face Registered!' : 'Error',
+      json.success ? empData.employeeName + ' is now registered.' : json.message);
+  } catch(err) {
+    document.getElementById('loadingBox').style.display = 'none';
+    showResult(false, '❌', 'Error', err.message);
+  }
+}
+
+function showResult(ok, icon, title, msg) {
+  document.getElementById('step2').style.display = 'none';
+  const box = document.getElementById('resultBox');
+  box.className = 'status-box ' + (ok ? 'success' : 'error');
+  document.getElementById('resultIcon').textContent  = icon;
+  document.getElementById('resultTitle').textContent = title;
+  document.getElementById('resultMsg').textContent   = msg;
+  box.style.display = 'block';
+}
+
+function registerAnother() {
+  document.getElementById('resultBox').style.display = 'none';
+  empData = null; photoBase64 = null;
+  showStep('step1');
+  startQRScanner();
+}
+
+function showStep(id) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+startQRScanner();
+</script>
+</body>
+</html>
