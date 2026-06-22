@@ -1,67 +1,47 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Greencore Builders — Attendance</title>
+  <title>Greencore — Face Registration</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
     header { width: 100%; background: #1a3c5e; color: #fff; padding: 16px 20px; text-align: center; }
-    header h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: 1px; }
-    header p  { font-size: 0.8rem; opacity: 0.8; margin-top: 2px; }
+    header h1 { font-size: 1.1rem; font-weight: 700; }
+    header p  { font-size: 0.78rem; opacity: 0.8; margin-top: 2px; }
     .card { background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); padding: 24px; margin: 20px 16px; width: 100%; max-width: 420px; }
-    .site-badge { background: #e8f4f0; border: 2px solid #2e8b6e; border-radius: 8px; padding: 10px 16px; text-align: center; margin-bottom: 20px; }
-    .site-badge .label { font-size: 0.75rem; color: #666; text-transform: uppercase; letter-spacing: 1px; }
-    .site-badge .value { font-size: 1.1rem; font-weight: 700; color: #1a3c5e; margin-top: 2px; }
     h2 { font-size: 1rem; color: #1a3c5e; margin-bottom: 14px; text-align: center; }
+    .step { display: none; }
+    .step.active { display: block; }
     #reader { width: 100%; border-radius: 8px; overflow: hidden; }
-
-    /* Face section */
-    .face-section { display: none; text-align: center; }
-    .emp-confirm { background: #e8f4f0; border-radius: 8px; padding: 12px; text-align: center; margin-bottom: 14px; }
-    .emp-confirm .name { font-size: 1rem; font-weight: 700; color: #1a3c5e; }
-    .emp-confirm .pos  { font-size: 0.8rem; color: #555; margin-top: 2px; }
+    .emp-box { background: #e8f4f0; border: 2px solid #2e8b6e; border-radius: 8px; padding: 14px; text-align: center; margin-bottom: 16px; }
+    .emp-box .name { font-size: 1.1rem; font-weight: 700; color: #1a3c5e; }
+    .emp-box .meta { font-size: 0.82rem; color: #555; margin-top: 3px; }
     .camera-wrap { position: relative; width: 100%; border-radius: 10px; overflow: hidden; background: #000; }
-    .camera-wrap video  { width: 100%; display: block; border-radius: 10px; }
-    .camera-wrap canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-    .face-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -55%);
-      width: 180px; height: 220px; border: 3px solid rgba(46,139,110,0.8);
+    .camera-wrap video { width: 100%; display: block; transform: scaleX(-1); }
+    .face-oval { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -55%);
+      width: 170px; height: 210px; border: 3px solid rgba(46,139,110,0.9);
       border-radius: 50% 50% 45% 45%; pointer-events: none; }
-    .face-tip { font-size: 0.8rem; color: #666; margin: 10px 0 12px; }
-    .face-status { font-size: 0.85rem; font-weight: 600; margin: 8px 0; min-height: 22px; }
-    .face-status.detecting { color: #888; }
-    .face-status.detected  { color: #2e8b6e; }
-    .face-status.no-face   { color: #e05252; }
-
-    /* Preview comparison */
-    .photo-compare { display: flex; gap: 10px; margin: 12px 0; }
-    .photo-compare .photo-box { flex: 1; text-align: center; }
-    .photo-compare img { width: 100%; border-radius: 8px; border: 2px solid #ddd; }
-    .photo-compare .lbl { font-size: 0.72rem; color: #888; margin-top: 4px; }
-
-    .btn { display: block; width: 100%; margin-top: 12px; padding: 13px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
-    .btn:active { opacity: 0.8; }
+    .cam-status { text-align: center; font-size: 0.82rem; font-weight: 600; color: #2e8b6e; margin: 8px 0; min-height: 20px; }
+    .cam-tip { font-size: 0.78rem; color: #888; text-align: center; margin-bottom: 10px; }
+    .preview-wrap { margin: 12px 0; }
+    .preview-wrap img { width: 100%; border-radius: 10px; border: 3px solid #2e8b6e; }
+    .preview-label { font-size: 0.78rem; color: #2e8b6e; font-weight: 600; text-align: center; margin-top: 6px; }
+    .btn { display: block; width: 100%; margin-top: 12px; padding: 13px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; }
     .btn-primary { background: #1a3c5e; color: #fff; }
     .btn-green   { background: #2e8b6e; color: #fff; }
-    .btn-gray    { background: #e0e0e0; color: #444; }
+    .btn-gray    { background: #e0e0e0; color: #333; }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    .status-box { display: none; border-radius: 10px; padding: 18px; text-align: center; margin-top: 16px; }
+    .status-box { display: none; border-radius: 10px; padding: 18px; text-align: center; margin-top: 12px; }
     .status-box.success { background: #e6f9f0; border: 2px solid #2e8b6e; }
     .status-box.error   { background: #fff0f0; border: 2px solid #e05252; }
-    .status-box.warning { background: #fffbe6; border: 2px solid #f0a500; }
-    .status-icon  { font-size: 2.5rem; }
-    .status-title { font-size: 1.2rem; font-weight: 700; margin: 6px 0 4px; color: #1a3c5e; }
-    .status-name  { font-size: 0.95rem; color: #333; }
-    .status-meta  { font-size: 0.82rem; color: #555; margin-top: 6px; white-space: pre-line; }
-    .status-range { font-size: 0.8rem; margin-top: 8px; font-weight: 600; }
-    .status-range.ok      { color: #2e8b6e; }
-    .status-range.outside { color: #e05252; }
-
-    .loading { text-align: center; padding: 20px; color: #888; font-size: 0.9rem; display: none; }
-    .spinner { display: inline-block; width: 26px; height: 26px; border: 3px solid #ddd; border-top-color: #1a3c5e; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 8px; }
+    .status-icon  { font-size: 2.2rem; }
+    .status-title { font-size: 1.1rem; font-weight: 700; color: #1a3c5e; margin-top: 6px; }
+    .status-msg   { font-size: 0.85rem; color: #555; margin-top: 4px; }
+    .loading { text-align: center; padding: 20px; display: none; }
+    .spinner { display: inline-block; width: 26px; height: 26px; border: 3px solid #ddd; border-top-color: #1a3c5e; border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     footer { font-size: 0.75rem; color: #aaa; text-align: center; padding: 20px; }
   </style>
@@ -69,481 +49,184 @@
 <body>
 <header>
   <h1>GREENCORE BUILDERS INC.</h1>
-  <p>Site Attendance System</p>
+  <p>Employee Face Registration — Admin Only</p>
 </header>
 
 <div class="card">
-  <div class="site-badge">
-    <div class="label">Current Site</div>
-    <div class="value" id="siteDisplay">Loading…</div>
-  </div>
 
   <!-- STEP 1: Scan QR -->
-  <div id="qrSection">
-    <h2>Scan Your Personal QR Code</h2>
+  <div class="step active" id="step1">
+    <h2>Step 1 — Scan Employee QR Code</h2>
     <div id="reader"></div>
+    <p style="font-size:0.78rem;color:#888;text-align:center;margin-top:10px;">
+      Scan the employee's personal QR code to begin
+    </p>
   </div>
 
-  <!-- STEP 2: Face verification -->
-  <div class="face-section" id="faceSection">
-    <h2>Face Verification</h2>
-    <div class="emp-confirm">
-      <div class="name" id="empNameDisplay">—</div>
-      <div class="pos"  id="empPosDisplay">—</div>
+  <!-- STEP 2: Camera -->
+  <div class="step" id="step2">
+    <h2>Step 2 — Take Reference Photo</h2>
+    <div class="emp-box">
+      <div class="name" id="empName">—</div>
+      <div class="meta" id="empMeta">—</div>
     </div>
-    <div class="camera-wrap">
-      <video id="faceVideo" autoplay playsinline muted></video>
-      <div class="face-overlay"></div>
-    </div>
-    <canvas id="faceCanvas" style="display:none;"></canvas>
-    <div class="face-status detecting" id="faceStatus">Position your face inside the oval</div>
-    <p class="face-tip">Make sure your face is well-lit and clearly visible</p>
-    <button class="btn btn-green" id="captureBtn" onclick="captureFace()">📸 Capture & Verify</button>
-    <button class="btn btn-gray"  id="skipFaceBtn" onclick="skipFace()" style="margin-top:8px;">Skip Face Check</button>
 
-    <!-- Photo preview after capture -->
-    <div id="photoCompare" style="display:none;">
-      <div class="photo-compare">
-        <div class="photo-box">
-          <img id="selfiePreview" src=""/>
-          <div class="lbl">Your Selfie</div>
-        </div>
-        <div class="photo-box">
-          <img id="refPreview" src=""/>
-          <div class="lbl">Reference Photo</div>
-        </div>
+    <div id="cameraView">
+      <div class="camera-wrap">
+        <video id="video" autoplay playsinline muted></video>
+        <div class="face-oval"></div>
       </div>
-      <div class="face-status" id="matchStatus"></div>
-      <button class="btn btn-primary" id="confirmBtn" onclick="confirmAttendance()">✅ Confirm Attendance</button>
-      <button class="btn btn-gray"    onclick="retakeSelfie()" style="margin-top:8px;">🔄 Retake</button>
+      <div class="cam-status" id="camStatus">Starting camera…</div>
+      <p class="cam-tip">Center your face in the oval. Look straight at camera.</p>
+      <button class="btn btn-green" id="captureBtn" onclick="capturePhoto()" disabled>📸 Take Photo</button>
+    </div>
+
+    <div id="previewView" style="display:none;">
+      <div class="preview-wrap">
+        <img id="previewImg" src=""/>
+        <div class="preview-label">✅ Photo captured — looks good?</div>
+      </div>
+      <button class="btn btn-primary" onclick="savePhoto()">💾 Save as Reference Photo</button>
+      <button class="btn btn-gray" onclick="retake()" style="margin-top:8px;">🔄 Retake</button>
     </div>
   </div>
 
+  <!-- Loading -->
   <div class="loading" id="loadingBox">
-    <div class="spinner"></div><br>
-    <span id="loadingMsg">Processing…</span>
+    <div class="spinner"></div>
+    <p style="margin-top:10px;font-size:0.85rem;color:#888;">Saving to Google Drive…</p>
   </div>
 
+  <!-- Result -->
   <div class="status-box" id="resultBox">
     <div class="status-icon"  id="resultIcon"></div>
     <div class="status-title" id="resultTitle"></div>
-    <div class="status-name"  id="resultName"></div>
-    <div class="status-meta"  id="resultMeta"></div>
-    <div class="status-range" id="resultRange"></div>
-    <button class="btn btn-primary" onclick="resetAll()" style="margin-top:14px;">Scan Next Person</button>
+    <div class="status-msg"   id="resultMsg"></div>
+    <button class="btn btn-primary" onclick="registerAnother()" style="margin-top:14px;">Register Another Employee</button>
   </div>
-</div>
 
-<footer>Greencore Builders Inc. &copy; 2026</footer>
+</div>
+<footer>Greencore Builders Inc. &copy; 2026 — Admin Only</footer>
 
 <script>
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw4WeqCP8mxNGZkX3S4JW3HMaSPsfag7c0u3ZkQV2o8NxXxl6e-eZJ7Ia3JUGXEZEkOow/exec';
 
-const params   = new URLSearchParams(window.location.search);
-const siteCode = params.get('site') || '';
-let siteData    = null;
-let empData     = null;
-let qrScanner   = null;
-let faceStream  = null;
-let scanning    = true;
-let refPhoto    = null;
-let selfieData  = null;
-let faceMatched = false;
+let scanner = null, empData = null, photoBase64 = null, stream = null;
 
-// ── INIT ──────────────────────────────────────────────────────
-async function init() {
-  if (!siteCode) { showError('No site code in URL. Please scan the site QR code.'); return; }
-  try {
-    setLoading('Loading site info…');
-    const res  = await fetch(`${APPS_SCRIPT_URL}?action=getSites`);
-    const json = await res.json();
-    if (!json.success) throw new Error(json.message);
-    const site = json.sites.find(s => s.siteCode === siteCode);
-    if (!site) { showError(`Site "${siteCode}" not found.`); return; }
-    siteData = site;
-    document.getElementById('siteDisplay').textContent = `${site.siteName} (${site.siteCode})`;
-    hideLoading();
-    startQRScanner();
-  } catch(err) {
-    showError('Cannot connect to server: ' + err.message);
-  }
-}
-
-// ── QR SCANNER ────────────────────────────────────────────────
 function startQRScanner() {
-  document.getElementById('qrSection').style.display   = 'block';
-  document.getElementById('faceSection').style.display = 'none';
-  document.getElementById('resultBox').style.display   = 'none';
   document.getElementById('reader').innerHTML = '';
-  scanning  = true;
-  qrScanner = new Html5Qrcode('reader');
-  qrScanner.start(
+  scanner = new Html5Qrcode('reader');
+  scanner.start(
     { facingMode: 'environment' },
-    { fps: 10, qrbox: { width: 260, height: 260 } },
+    { fps: 10, qrbox: { width: 250, height: 250 } },
     onQRScanned, () => {}
-  ).catch(() => showError('Camera access denied. Please allow camera permission and reload.'));
+  ).catch(() => alert('Camera permission denied. Please allow and reload.'));
 }
 
 async function onQRScanned(token) {
-  if (!scanning) return;
-  scanning = false;
-  if (qrScanner) { try { await qrScanner.stop(); } catch(e) {} }
+  if (scanner) { try { await scanner.stop(); } catch(e) {} }
   document.getElementById('reader').innerHTML = '';
-  document.getElementById('qrSection').style.display = 'none';
-
-  setLoading('Checking employee…');
   try {
     const res  = await fetch(`${APPS_SCRIPT_URL}?action=getEmployee&token=${encodeURIComponent(token)}`);
     const json = await res.json();
-    hideLoading();
-
-    if (!json.success) { showError(json.message); return; }
+    if (!json.success) { alert('Invalid QR: ' + json.message); startQRScanner(); return; }
     empData = json;
-
-    document.getElementById('empNameDisplay').textContent = json.employeeName;
-    document.getElementById('empPosDisplay').textContent  = json.position + '  •  ' + json.employeeId;
-
-    if (!json.hasFacePhoto) {
-      // No face registered yet — log directly, no face check
-      await submitAttendance('NOT-REGISTERED');
-    } else {
-      // Load reference photo
-      setLoading('Loading face data…');
-      const fRes  = await fetch(`${APPS_SCRIPT_URL}?action=getFacePhoto&employeeId=${encodeURIComponent(json.employeeId)}`);
-      const fJson = await fRes.json();
-      hideLoading();
-
-      if (!fJson.success) {
-        await submitAttendance('NO-PHOTO');
-        return;
-      }
-      refPhoto = fJson.photo;
-      showFaceSection();
-    }
-  } catch(err) {
-    hideLoading();
-    showError('Error: ' + err.message);
-  }
+    document.getElementById('empName').textContent = json.employeeName;
+    document.getElementById('empMeta').textContent = json.employeeId + '  •  ' + json.position
+      + (json.hasFacePhoto ? '  •  ✅ Has photo' : '  •  ⚠️ No photo yet');
+    showStep('step2');
+    startCamera();
+  } catch(err) { alert('Error: ' + err.message); startQRScanner(); }
 }
 
-// ── FACE SECTION ──────────────────────────────────────────────
-async function showFaceSection() {
-  document.getElementById('faceSection').style.display  = 'block';
-  document.getElementById('photoCompare').style.display = 'none';
-  document.getElementById('captureBtn').style.display   = 'block';
-  document.getElementById('skipFaceBtn').style.display  = 'block';
-  document.getElementById('faceStatus').textContent     = 'Position your face inside the oval';
-  document.getElementById('faceStatus').className       = 'face-status detecting';
-
+async function startCamera() {
+  document.getElementById('cameraView').style.display  = 'block';
+  document.getElementById('previewView').style.display = 'none';
+  document.getElementById('captureBtn').disabled       = true;
+  document.getElementById('camStatus').textContent     = 'Starting camera…';
   try {
-    faceStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
-      audio: false
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false
     });
-    document.getElementById('faceVideo').srcObject = faceStream;
-    // Update status once video loads
-    document.getElementById('faceVideo').onloadedmetadata = () => {
-      document.getElementById('faceStatus').textContent = '✅ Camera ready — tap Capture when ready';
-      document.getElementById('faceStatus').className   = 'face-status detected';
+    const video = document.getElementById('video');
+    video.srcObject = stream;
+    video.onloadedmetadata = () => {
+      document.getElementById('captureBtn').disabled   = false;
+      document.getElementById('camStatus').textContent = '✅ Camera ready — tap Take Photo';
     };
   } catch(e) {
-    document.getElementById('faceStatus').textContent = 'Cannot access front camera';
-    document.getElementById('faceStatus').className   = 'face-status no-face';
-    document.getElementById('skipFaceBtn').style.display = 'block';
+    document.getElementById('camStatus').textContent = '❌ Cannot access camera: ' + e.message;
   }
 }
 
-function captureFace() {
-  const video  = document.getElementById('faceVideo');
-  const canvas = document.getElementById('faceCanvas');
-
-  if (!video.videoWidth) {
-    document.getElementById('faceStatus').textContent = '⚠️ Camera not ready yet. Please wait.';
-    return;
-  }
-
+function capturePhoto() {
+  const video  = document.getElementById('video');
+  const canvas = document.createElement('canvas');
+  if (!video.videoWidth) { document.getElementById('camStatus').textContent = 'Camera not ready yet.'; return; }
   canvas.width  = video.videoWidth;
   canvas.height = video.videoHeight;
-
-  // Mirror the image (front camera is mirrored)
   const ctx = canvas.getContext('2d');
   ctx.translate(canvas.width, 0);
   ctx.scale(-1, 1);
   ctx.drawImage(video, 0, 0);
-
-  selfieData = canvas.toDataURL('image/jpeg', 0.9);
-
-  // Stop camera
-  if (faceStream) { faceStream.getTracks().forEach(t => t.stop()); }
-
-  // Show preview comparison
-  document.getElementById('selfiePreview').src = selfieData;
-  document.getElementById('refPreview').src    = refPhoto;
-  document.getElementById('captureBtn').style.display   = 'none';
-  document.getElementById('skipFaceBtn').style.display  = 'none';
-
-  // Run face comparison
-  const match = compareFaces(selfieData, refPhoto);
-  faceMatched = match;
-
-  const matchEl = document.getElementById('matchStatus');
-  if (match) {
-    matchEl.textContent = '✅ Face matched!';
-    matchEl.className   = 'face-status detected';
-  } else {
-    matchEl.textContent = '⚠️ Face may not match — photos saved for review';
-    matchEl.className   = 'face-status no-face';
-  }
-
-  document.getElementById('photoCompare').style.display = 'block';
+  photoBase64 = canvas.toDataURL('image/jpeg', 0.9);
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  document.getElementById('previewImg').src           = photoBase64;
+  document.getElementById('cameraView').style.display  = 'none';
+  document.getElementById('previewView').style.display = 'block';
 }
 
-function retakeSelfie() {
-  document.getElementById('photoCompare').style.display = 'none';
-  selfieData  = null;
-  faceMatched = false;
-  showFaceSection();
-}
+function retake() { photoBase64 = null; startCamera(); }
 
-async function confirmAttendance() {
-  const faceStatus = faceMatched ? 'FACE-MATCH' : 'FACE-MISMATCH';
-
-  // If mismatch, save photos to Drive in background
-  if (!faceMatched) {
-    const ts = new Date().toISOString().replace(/[:.]/g, '-');
-    fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({
-        action:       'saveMismatch',
-        employeeId:   empData.employeeId,
-        employeeName: empData.employeeName,
-        selfie:       selfieData,
-        reference:    refPhoto,
-        timestamp:    ts
-      })
-    }).catch(() => {}); // non-blocking
-  }
-
-  await submitAttendance(faceStatus);
-}
-
-function skipFace() {
-  if (faceStream) { faceStream.getTracks().forEach(t => t.stop()); }
-  submitAttendance('SKIPPED');
-}
-
-// ── IMPROVED FACE COMPARISON ──────────────────────────────────
-// Crops center region (likely face area) and compares brightness histogram
-function compareFaces(img1b64, img2b64) {
-  try {
-    const size = 100;
-    const c1 = document.createElement('canvas');
-    const c2 = document.createElement('canvas');
-    const i1 = new Image();
-    const i2 = new Image();
-
-    // Synchronous load using already-loaded base64
-    i1.src = img1b64;
-    i2.src = img2b64;
-
-    c1.width = c1.height = size;
-    c2.width = c2.height = size;
-
-    const ctx1 = c1.getContext('2d');
-    const ctx2 = c2.getContext('2d');
-
-    // Draw center crop of each image (face is usually center)
-    // Crop middle 60% of image to focus on face area
-    const cropX1 = i1.width  * 0.2, cropY1 = i1.height  * 0.1;
-    const cropW1 = i1.width  * 0.6, cropH1 = i1.height  * 0.8;
-    const cropX2 = i2.width  * 0.2, cropY2 = i2.height  * 0.1;
-    const cropW2 = i2.width  * 0.6, cropH2 = i2.height  * 0.8;
-
-    ctx1.drawImage(i1, cropX1, cropY1, cropW1, cropH1, 0, 0, size, size);
-    ctx2.drawImage(i2, cropX2, cropY2, cropW2, cropH2, 0, 0, size, size);
-
-    const d1 = ctx1.getImageData(0, 0, size, size).data;
-    const d2 = ctx2.getImageData(0, 0, size, size).data;
-
-    // Build brightness histogram for each image
-    const hist1 = new Array(16).fill(0);
-    const hist2 = new Array(16).fill(0);
-
-    for (let i = 0; i < d1.length; i += 4) {
-      const brightness1 = Math.round((d1[i] * 0.299 + d1[i+1] * 0.587 + d1[i+2] * 0.114) / 16);
-      const brightness2 = Math.round((d2[i] * 0.299 + d2[i+1] * 0.587 + d2[i+2] * 0.114) / 16);
-      hist1[Math.min(brightness1, 15)]++;
-      hist2[Math.min(brightness2, 15)]++;
-    }
-
-    // Normalize histograms
-    const total = size * size;
-    for (let i = 0; i < 16; i++) { hist1[i] /= total; hist2[i] /= total; }
-
-    // Compare using histogram intersection (more robust than pixel diff)
-    let intersection = 0;
-    for (let i = 0; i < 16; i++) {
-      intersection += Math.min(hist1[i], hist2[i]);
-    }
-
-    // Also compare skin-tone ratio (faces have similar skin tone ratios)
-    let skin1 = 0, skin2 = 0;
-    for (let i = 0; i < d1.length; i += 4) {
-      if (isSkinTone(d1[i], d1[i+1], d1[i+2])) skin1++;
-      if (isSkinTone(d2[i], d2[i+1], d2[i+2])) skin2++;
-    }
-    const skinRatio1 = skin1 / total;
-    const skinRatio2 = skin2 / total;
-    const skinSimilarity = 1 - Math.abs(skinRatio1 - skinRatio2);
-
-    // Combined score: 60% histogram + 40% skin tone
-    const score = (intersection * 0.6) + (skinSimilarity * 0.4);
-
-    console.log('Face comparison score:', score.toFixed(3),
-      '| histogram:', intersection.toFixed(3),
-      '| skin:', skinSimilarity.toFixed(3));
-
-    return score > 0.72; // threshold — adjust if too strict/loose
-
-  } catch(e) {
-    console.error('Face compare error:', e);
-    return false;
-  }
-}
-
-function isSkinTone(r, g, b) {
-  // Basic skin tone detection (works across different skin colors)
-  return r > 60 && g > 40 && b > 20 &&
-         r > g && r > b &&
-         (r - Math.min(g, b)) > 15 &&
-         Math.abs(r - g) > 10;
-}
-
-// ── SUBMIT ATTENDANCE ─────────────────────────────────────────
-async function submitAttendance(faceStatus) {
-  document.getElementById('faceSection').style.display = 'none';
-  setLoading('Recording attendance…');
-
-  let latitude = '', longitude = '', distance = '', remarks = '';
-  try {
-    const pos = await getLocation();
-    latitude  = pos.coords.latitude;
-    longitude = pos.coords.longitude;
-    distance  = calcDistance(latitude, longitude, siteData.latitude, siteData.longitude);
-    remarks   = distance > siteData.radius ? 'OUT-OF-RANGE' : 'WITHIN-RANGE';
-  } catch(e) { remarks = 'GPS-UNAVAILABLE'; }
-
+async function savePhoto() {
+  if (!photoBase64) { alert('No photo captured.'); return; }
+  document.getElementById('previewView').style.display = 'none';
+  document.getElementById('loadingBox').style.display  = 'block';
   try {
     const res  = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
       body: JSON.stringify({
-        action:       'logAttendance',
+        action: 'registerFace',
         employeeId:   empData.employeeId,
         employeeName: empData.employeeName,
-        siteCode:     siteData.siteCode,
-        siteName:     siteData.siteName,
-        latitude, longitude,
-        device:    navigator.userAgent.substring(0, 80),
-        distance:  distance ? Math.round(distance) + 'm' : '',
-        remarks,
-        faceStatus
+        photo:        photoBase64
       })
     });
     const json = await res.json();
-    hideLoading();
-
-    if (!json.success && json.blocked) {
-      showWarning('⏱️', 'Already ' + json.lastAction, empData.employeeName, json.message);
-      return;
-    }
-    if (!json.success) { showError(json.message); return; }
-
-    const isMismatch = faceStatus === 'FACE-MISMATCH';
-    const rangeText  = distance !== ''
-      ? (remarks === 'OUT-OF-RANGE'
-          ? `⚠️ OUT OF RANGE — ${Math.round(distance)}m from site (max ${siteData.radius}m)`
-          : `📍 Within range — ${Math.round(distance)}m from site`)
-      : '📍 GPS unavailable';
-
-    showSuccess(json, isMismatch, rangeText, remarks);
-
+    document.getElementById('loadingBox').style.display = 'none';
+    showResult(json.success, json.success ? '✅' : '❌',
+      json.success ? 'Face Registered!' : 'Error',
+      json.success ? empData.employeeName + '\'s face photo is now saved.' : json.message);
   } catch(err) {
-    hideLoading();
-    showError('Error: ' + err.message);
+    document.getElementById('loadingBox').style.display = 'none';
+    showResult(false, '❌', 'Error', err.message);
   }
 }
 
-// ── DISPLAY HELPERS ───────────────────────────────────────────
-function showSuccess(log, isMismatch, rangeText, remarks) {
+function showResult(ok, icon, title, msg) {
+  document.getElementById('step2').style.display = 'none';
   const box = document.getElementById('resultBox');
-  box.className = isMismatch ? 'status-box warning' : 'status-box success';
-  document.getElementById('resultIcon').textContent  = log.action === 'TIME-IN' ? (isMismatch ? '⚠️' : '✅') : '🚪';
-  document.getElementById('resultTitle').textContent = log.action + (isMismatch ? ' (FACE MISMATCH)' : '');
-  document.getElementById('resultName').textContent  = log.employeeName;
-  document.getElementById('resultMeta').textContent  = `${log.siteName}  •  ${log.date}  ${log.time}`
-    + (isMismatch ? '\n⚠️ Mismatch photos saved to Google Drive.' : '');
-  const rangeEl = document.getElementById('resultRange');
-  rangeEl.textContent = rangeText;
-  rangeEl.className   = 'status-range ' + (remarks === 'OUT-OF-RANGE' ? 'outside' : 'ok');
-  box.style.display = 'block';
-}
-
-function showWarning(icon, title, name, msg) {
-  const box = document.getElementById('resultBox');
-  box.className = 'status-box warning';
+  box.className = 'status-box ' + (ok ? 'success' : 'error');
   document.getElementById('resultIcon').textContent  = icon;
   document.getElementById('resultTitle').textContent = title;
-  document.getElementById('resultName').textContent  = name;
-  document.getElementById('resultMeta').textContent  = msg;
-  document.getElementById('resultRange').textContent = '';
+  document.getElementById('resultMsg').textContent   = msg;
   box.style.display = 'block';
 }
 
-function showError(msg) {
-  hideLoading();
-  document.getElementById('qrSection').style.display   = 'none';
-  document.getElementById('faceSection').style.display = 'none';
-  const box = document.getElementById('resultBox');
-  box.className = 'status-box error';
-  document.getElementById('resultIcon').textContent  = '❌';
-  document.getElementById('resultTitle').textContent = 'Error';
-  document.getElementById('resultName').textContent  = msg;
-  document.getElementById('resultMeta').textContent  = '';
-  document.getElementById('resultRange').textContent = '';
-  box.style.display = 'block';
-}
-
-function setLoading(msg) {
-  document.getElementById('loadingMsg').textContent   = msg || 'Processing…';
-  document.getElementById('loadingBox').style.display = 'block';
-  document.getElementById('resultBox').style.display  = 'none';
-}
-function hideLoading() { document.getElementById('loadingBox').style.display = 'none'; }
-
-function resetAll() {
-  document.getElementById('resultBox').style.display   = 'none';
-  document.getElementById('faceSection').style.display = 'none';
-  empData = null; refPhoto = null; selfieData = null; faceMatched = false;
-  if (faceStream) { faceStream.getTracks().forEach(t => t.stop()); faceStream = null; }
+function registerAnother() {
+  document.getElementById('resultBox').style.display = 'none';
+  empData = null; photoBase64 = null;
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  showStep('step1');
   startQRScanner();
 }
 
-// ── UTILITIES ─────────────────────────────────────────────────
-function getLocation() {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) return reject(new Error('GPS not supported'));
-    navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 8000 });
-  });
+function showStep(id) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
 }
 
-function calcDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371000, d1 = lat1*Math.PI/180, d2 = lat2*Math.PI/180;
-  const dL = (lat2-lat1)*Math.PI/180, dO = (lon2-lon1)*Math.PI/180;
-  const a = Math.sin(dL/2)**2 + Math.cos(d1)*Math.cos(d2)*Math.sin(dO/2)**2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-}
-
-init();
+startQRScanner();
 </script>
 </body>
 </html>
